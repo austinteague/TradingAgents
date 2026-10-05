@@ -15,7 +15,7 @@ as declarative per-model fields).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 StructuredMethod = Literal[
@@ -57,6 +57,16 @@ _DEEPSEEK_THINKING = ModelCapabilities(
     supports_json_schema=False,
     preferred_structured_method="function_calling",
     requires_reasoning_content_roundtrip=True,
+)
+
+# The same thinking models served through OpenRouter. With tool_choice
+# suppressed, a prompt that asks for written sections gets a prose answer and
+# no tool call, so the structured call parses nothing. OpenRouter enforces a
+# json_schema response_format for them, which DeepSeek's own API does not offer.
+_OPENROUTER_DEEPSEEK_THINKING = replace(
+    _DEEPSEEK_THINKING,
+    supports_json_schema=True,
+    preferred_structured_method="json_schema",
 )
 
 _DEEPSEEK_CHAT = ModelCapabilities(
@@ -130,7 +140,8 @@ def get_capabilities(model_name: str) -> ModelCapabilities:
     # official namespace is stripped; third-party finetunes on other publishers
     # (e.g. ``tngtech/deepseek-...``) keep _DEFAULT, since their quirks are unknown.
     if model_name.startswith("deepseek/"):
-        model_name = model_name.removeprefix("deepseek/")
+        caps = get_capabilities(model_name.removeprefix("deepseek/"))
+        return _OPENROUTER_DEEPSEEK_THINKING if caps is _DEEPSEEK_THINKING else caps
 
     if model_name in _BY_ID:
         return _BY_ID[model_name]
