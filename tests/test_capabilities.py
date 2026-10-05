@@ -164,6 +164,25 @@ class TestOpenRouterDeepSeekNamespace:
         assert get_capabilities("deepseek-v4-flash").supports_tool_choice is False
         assert get_capabilities("deepseek-chat").supports_tool_choice is True
 
+    @pytest.mark.parametrize("model", [
+        "deepseek/deepseek-v4-flash", "deepseek/deepseek-reasoner", "deepseek/deepseek-flash",
+    ])
+    def test_prefixed_thinking_models_use_json_schema(self, model):
+        # Without tool_choice, a thinking model given a prompt that asks for
+        # written sections answers in prose and the structured call parses
+        # nothing (Trader replay: 3 of 4 misses). OpenRouter enforces
+        # response_format json_schema for these, so use it instead of a tool.
+        caps = get_capabilities(model)
+        assert caps.supports_json_schema is True
+        assert caps.preferred_structured_method == "json_schema"
+        assert caps.supports_tool_choice is False
+
+    def test_native_thinking_ids_keep_function_calling(self):
+        # DeepSeek's own API has no json_schema response_format.
+        caps = get_capabilities("deepseek-v4-flash")
+        assert caps.supports_json_schema is False
+        assert caps.preferred_structured_method == "function_calling"
+
 
 @pytest.mark.unit
 def test_capabilities_dataclass_is_frozen():
